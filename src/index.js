@@ -11,20 +11,6 @@ const wasmBase64 = (0, base64_arraybuffer_1.decode)(wasmUtf);
 let cachedUint8Memory0 = null;
 let wasm = undefined;
 
-// Initialize the WASM module
-function init() {
-    if (wasm !== undefined) return wasm;
-    
-    const imports = __wbg_get_imports();
-    __wbg_init_memory(imports);
-    
-    const instance = new WebAssembly.Instance(new WebAssembly.Module(wasmBase64), imports);
-    return __wbg_finalize_init(instance);
-}
-
-// Initialize the module
-init();
-
 // Heap management
 const heap = new Array(128).fill(undefined);
 heap.push(undefined, null, true, false);
@@ -79,43 +65,6 @@ function getUint8Memory0() {
 function getStringFromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
-}
-
-// Falcon keypair generation
-function falconKeypair(_seed) {
-    const ret = wasm.falconKeypair(addHeapObject(_seed));
-    return KeyPair.__wrap(ret);
-}
-
-// KeyPair class
-class KeyPair {
-    static __wrap(ptr) {
-        ptr = ptr >>> 0;
-        const obj = Object.create(KeyPair.prototype);
-        obj.__wbg_ptr = ptr;
-        return obj;
-    }
-
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        return ptr;
-    }
-
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_keypair_free(ptr);
-    }
-
-    get public() {
-        const ret = wasm.keypair_public(this.__wbg_ptr);
-        return takeObject(ret);
-    }
-
-    get secret() {
-        const ret = wasm.keypair_secret(this.__wbg_ptr);
-        return takeObject(ret);
-    }
 }
 
 // WebAssembly imports
@@ -183,6 +132,59 @@ function __wbg_finalize_init(instance) {
     wasm = instance.exports;
     cachedUint8Memory0 = null
     return wasm;
+}
+
+// Initialize the WASM module
+function init() {
+    if (wasm !== undefined) return wasm;
+    
+    const imports = __wbg_get_imports();
+    __wbg_init_memory(imports);
+    
+    const instance = new WebAssembly.Instance(new WebAssembly.Module(wasmBase64), imports);
+    console.log(instance.exports);
+    return __wbg_finalize_init(instance);
+}
+
+// Initialize the module
+init();
+
+// Falcon keypair generation
+function falconKeypair(_seed) {
+    const seedRef = addHeapObject(_seed);
+    const ret = wasm.falconKeypair(seedRef);
+    return KeyPair.__wrap(ret);
+}
+
+// KeyPair class
+class KeyPair {
+    static __wrap(ptr) {
+        ptr = ptr >>> 0;
+        const obj = Object.create(KeyPair.prototype);
+        obj.__wbg_ptr = ptr;
+        return obj;
+    }
+
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        return ptr;
+    }
+
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_keypair_free(ptr);
+    }
+
+    get public() {
+        const ret = wasm.keypair_public(this.__wbg_ptr);
+        return takeObject(ret);
+    }
+
+    get secret() {
+        const ret = wasm.keypair_secret(this.__wbg_ptr);
+        return takeObject(ret);
+    }
 }
 
 // Export the functions and classes
