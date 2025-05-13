@@ -2,9 +2,7 @@ const fs = require('fs');
 const base64_arraybuffer_1 = require("base64-arraybuffer");
 
 // Read the WASM file as a buffer
-const wasmFile = fs.readFileSync('./module.wasm');
-const wasmUtf = wasmFile.toString('utf8');
-const wasmBase64 = (0, base64_arraybuffer_1.decode)(wasmUtf);
+const wasmBase64 = fs.readFileSync('./module_decoded.wasm');
 
 let cachedUint8Memory0 = null;
 let wasm = undefined;
@@ -17,7 +15,6 @@ let heapNext = heap.length;
 function getObject(idx) {
     return heap[idx];
 }
-
 
 function dropObject(idx) {
     if (idx < 132) return;
@@ -56,13 +53,16 @@ if (typeof TextDecoder !== "undefined") {
 function getUint8Memory0() {
     if (cachedUint8Memory0 === null || cachedUint8Memory0.byteLength === 0) {
         cachedUint8Memory0 = new Uint8Array(wasm.memory.buffer);
+        console.log("HI")
     }
     return cachedUint8Memory0;
 }
 
 function getStringFromWasm0(ptr, len) {
     ptr = ptr >>> 0;
-    return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
+    const memory = getUint8Memory0();
+    const value = cachedTextDecoder.decode(memory.subarray(ptr, ptr + len))
+    return value;
 }
 
 // WebAssembly imports
@@ -84,7 +84,8 @@ function __wbg_get_imports() {
     };
 
     imports.wbg.__wbg_buffer_085ec1f694018c4f = function(arg0) {
-        const ret = addHeapObject(getObject(arg0).buffer);
+        const obj = getObject(arg0);
+        const ret = addHeapObject(obj.buffer);
         return ret;
     };
 
@@ -186,6 +187,21 @@ class KeyPair {
         return value;
     }
 }
+
+const seed_hex = 'e95afe2bfb5f361b4571e4de191d9af2de88d14ca3c34158fc9e9222746e986fa4ad4c577f80335d96f1c06a3db0e6b7';
+const seed = new Uint8Array(Buffer.from(seed_hex, 'hex'));
+
+const keypair = falconKeypair(seed);
+console.log('Generated keypair');
+
+const publicKey = keypair.public;
+const secretKey = keypair.secret;
+
+console.log(`seed: ${seed}`);
+
+console.log('Public key length:', publicKey.length);
+console.log('Secret key length:', secretKey.length);
+console.log('Public key:', Buffer.from(publicKey.slice(0, 100)).toString('hex'));
 
 // Export the functions and classes
 module.exports = {
