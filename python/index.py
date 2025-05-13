@@ -1,6 +1,5 @@
 import wasmtime
 import base64
-import os
 
 # Read the WASM file as UTF-8 string
 with open('./module.wasm', 'r', encoding='utf-8') as wasm_file:
@@ -43,35 +42,111 @@ def add_heap_object(obj):
 
 # Memory management functions
 def get_uint8_memory0():
-    global cached_uint8_memory0, wasm
-    if cached_uint8_memory0 is None or len(cached_uint8_memory0) == 0:
-        cached_uint8_memory0 = bytearray(wasm.memory.buffer)
-    return cached_uint8_memory0
+    global wasm_memory
+    # Always read the latest memory buffer
+    memory = wasm_memory.read(store, 0, wasm_memory.data_len(store))
+    return memory
 
 def get_string_from_wasm0(ptr, len_):
     memory = get_uint8_memory0()
     return bytes(memory[ptr:ptr+len_]).decode('utf-8')
 
 def __wbg_get_imports():
-    imports = {
-        "wbg": {
-            "__wbindgen_object_drop_ref": lambda arg0: take_object(arg0),
-            "__wbindgen_object_clone_ref": lambda arg0: add_heap_object(get_object(arg0)),
-            "__wbg_log_233cc96097d5ec7d": lambda arg0, arg1: print(get_string_from_wasm0(arg0, arg1)),
-            "__wbg_buffer_085ec1f694018c4f": lambda arg0: add_heap_object(get_object(arg0)),
-            "__wbg_newwithbyteoffsetandlength_6da8e527659b86aa": lambda arg0, arg1, arg2: add_heap_object(
-                bytearray(wasm_memory.read(store, arg1, arg2))
-            ),
-            "__wbg_new_8125e318e6245eed": lambda arg0: add_heap_object(
-                bytearray(wasm_memory.read(store, 0, wasm_memory.data_len(store)))
-            ),
-            "__wbg_newwithlength_e5d69174d6984cd7": lambda arg0: add_heap_object(bytearray(arg0)),
-            "__wbg_length_72e2208bbc0efc61": lambda arg0: len(get_object(arg0)),
-            "__wbg_set_5cf90238115182c3": lambda arg0, arg1, arg2: get_object(arg0).__setitem__(slice(arg2, arg2 + len(get_object(arg1))), get_object(arg1)),
-            "__wbindgen_throw": lambda arg0, arg1: (_ for _ in ()).throw(Exception(get_string_from_wasm0(arg0, arg1))),
-            "__wbindgen_memory": lambda: add_heap_object(wasm_memory),
-        }
-    }
+    imports = {}
+    imports["wbg"] = {}
+
+    def __wbindgen_object_drop_ref(arg0):
+        take_object(arg0)
+    imports["wbg"]["__wbindgen_object_drop_ref"] = __wbindgen_object_drop_ref
+
+    def __wbindgen_object_clone_ref(arg0):
+        ret = add_heap_object(get_object(arg0))
+        return ret
+    imports["wbg"]["__wbindgen_object_clone_ref"] = __wbindgen_object_clone_ref
+
+    def __wbg_log_233cc96097d5ec7d(arg0, arg1):
+        print(get_string_from_wasm0(arg0, arg1))
+    imports["wbg"]["__wbg_log_233cc96097d5ec7d"] = __wbg_log_233cc96097d5ec7d
+
+    def __wbg_buffer_085ec1f694018c4f(arg0):
+        obj = get_object(arg0)
+        if isinstance(obj, wasmtime._memory.Memory):
+            # Get the raw memory buffer
+            memory = get_uint8_memory0()
+            # Create a new bytearray from the entire memory
+            ret = add_heap_object(bytearray(memory))
+        else:
+            # If it's already a bytearray or bytes, create a copy
+            ret = add_heap_object(bytearray(obj))
+        return ret
+    imports["wbg"]["__wbg_buffer_085ec1f694018c4f"] = __wbg_buffer_085ec1f694018c4f
+
+    def __wbg_newwithlength_e5d69174d6984cd7(arg0):
+        # Create a new bytearray of the specified length
+        ret = add_heap_object(bytearray(arg0))
+        return ret
+    imports["wbg"]["__wbg_newwithlength_e5d69174d6984cd7"] = __wbg_newwithlength_e5d69174d6984cd7
+
+    def __wbg_newwithbyteoffsetandlength_6da8e527659b86aa(arg0, arg1, arg2):
+        # Get the buffer from the object at arg0
+        buffer = get_object(arg0)
+        if isinstance(buffer, wasmtime._memory.Memory):
+            # Get the raw memory buffer
+            memory = get_uint8_memory0()
+            # Create a new bytearray from the memory slice
+            ret = add_heap_object(bytearray(memory[arg1:arg1+arg2]))
+        else:
+            # If it's already a bytearray or bytes, create a copy
+            ret = add_heap_object(bytearray(buffer[arg1:arg1+arg2]))
+        return ret
+    imports["wbg"]["__wbg_newwithbyteoffsetandlength_6da8e527659b86aa"] = __wbg_newwithbyteoffsetandlength_6da8e527659b86aa
+
+    def __wbg_new_8125e318e6245eed(arg0):
+        # Get the buffer from the object at arg0
+        buffer = get_object(arg0)
+        if isinstance(buffer, wasmtime._memory.Memory):
+            # Get the raw memory buffer
+            memory = get_uint8_memory0()
+            # Create a new bytearray from the entire memory
+            ret = add_heap_object(bytearray(memory))
+        else:
+            # If it's already a bytearray or bytes, create a copy
+            ret = add_heap_object(bytearray(buffer))
+        return ret
+    imports["wbg"]["__wbg_new_8125e318e6245eed"] = __wbg_new_8125e318e6245eed
+
+    def __wbg_length_72e2208bbc0efc61(arg0):
+        ret = len(get_object(arg0))
+        return ret
+    imports["wbg"]["__wbg_length_72e2208bbc0efc61"] = __wbg_length_72e2208bbc0efc61
+
+    def __wbg_set_5cf90238115182c3(arg0, arg1, arg2):
+        target = get_object(arg0)
+        source = get_object(arg1)
+        
+        # Convert to bytearray for modification
+        if isinstance(target, bytes):
+            target = bytearray(target)
+            heap[arg0] = target
+        
+        # Ensure source is in the right format
+        if isinstance(source, bytes):
+            source = bytearray(source)
+        
+        # Perform the copy
+        target[arg2:arg2+len(source)] = source
+        return 0
+    imports["wbg"]["__wbg_set_5cf90238115182c3"] = __wbg_set_5cf90238115182c3
+
+    def __wbindgen_throw(arg0, arg1):
+        raise Exception(get_string_from_wasm0(arg0, arg1))
+    imports["wbg"]["__wbindgen_throw"] = __wbindgen_throw
+
+    def __wbindgen_memory():
+        ret = add_heap_object(wasm_memory)
+        return ret
+    imports["wbg"]["__wbindgen_memory"] = __wbindgen_memory
+
     return imports
 
 def __wbg_init_memory(imports, maybe_memory):
@@ -146,12 +221,21 @@ def init():
 
 init()
 
+def refresh_uint8_memory0():
+    global cached_uint8_memory0, wasm_memory
+    memory = wasm_memory.read(store, 0, wasm_memory.data_len(store))
+    cached_uint8_memory0 = memory
+
 def falcon_keypair(_seed):
     global store
-    print("Exports:", [name for name in wasm.keys()])
-    ret = wasm['falconKeypair'](store, add_heap_object(_seed))
-    print(f"seed_ref: {add_heap_object(_seed)}")
-    print(f"ret: {ret}")
+    seed_ref = add_heap_object(_seed)
+    ret = wasm['falconKeypair'](store, seed_ref)
+    # Refresh memory after WASM call
+    refresh_uint8_memory0()
+    # if 0 <= ret < len(heap):
+    #     print(f"Heap object at ret ({ret}): {heap[ret]}")
+    # else:
+    #     print(f"Returned index {ret} is out of heap bounds!")
     return KeyPair._wrap(ret)
 
 # KeyPair class
@@ -161,7 +245,7 @@ class KeyPair:
     
     @staticmethod
     def _wrap(ptr):
-        ptr = int(ptr & 0xFFFFFFFF)  # >>> 0 equivalent in Python
+        ptr = int(ptr >> 0)
         obj = KeyPair()
         obj.__wbg_ptr = ptr
         return obj
@@ -173,38 +257,47 @@ class KeyPair:
     
     def free(self):
         ptr = self.__destroy_into_raw()
-        if ptr != 0:
-            wasm['__wbg_keypair_free'](store, ptr)
-    
+        wasm['__wbg_keypair_free'](store, ptr)
+
     @property
     def public(self):
-        if self.__wbg_ptr is None:
-            raise ValueError("KeyPair has been freed")
         ret = wasm['keypair_public'](store, self.__wbg_ptr)
-        return take_object(ret)
+        value = take_object(ret)
+        if isinstance(value, int):
+            # Assume this is a pointer to WASM memory, try to read a reasonable length (e.g., 897 for Falcon-512)
+            memory = get_uint8_memory0()
+            # You may need to adjust the length depending on your key size
+            key_len = 897
+            key_bytes = memory[value:value+key_len]
+            return bytes(key_bytes)
+        return value
     
     @property
     def secret(self):
-        if self.__wbg_ptr is None:
-            raise ValueError("KeyPair has been freed")
         ret = wasm['keypair_secret'](store, self.__wbg_ptr)
-        return take_object(ret)
+        value = take_object(ret)
+        if isinstance(value, int):
+            # Assume this is a pointer to WASM memory, try to read a reasonable length (e.g., 1281 for Falcon-512)
+            memory = get_uint8_memory0()
+            key_len = 1281
+            key_bytes = memory[value:value+key_len]
+            return bytes(key_bytes)
+        return value
 
 
 seed_bytes = bytes.fromhex("e95afe2bfb5f361b4571e4de191d9af2de88d14ca3c34158fc9e9222746e986fa4ad4c577f80335d96f1c06a3db0e6b7")
 seed = bytearray(seed_bytes)
-# print(seed)
 keypair = falcon_keypair(seed)
 print('Generated keypair')
 
 # Get public and secret keys
 public_key = keypair.public
 secret_key = keypair.secret
+print(f"seed: {list(seed)}")
 
 print('Public key length:', len(public_key))
 print('Secret key length:', len(secret_key))
-print('Public key:', list(public_key)[:100])  # First 100 bytes
-print('Secret key:', list(secret_key)[:100])  # First 100 bytes
+print('Public key:', public_key[:100].hex())
 
 # Clean up
-keypair.free()
+# keypair.free()
